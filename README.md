@@ -1,6 +1,9 @@
 # CXR-Age-SSL
 Evaluating different semi-supervised learning algorithms for CXR age estimation
 
+### Data
+NIH Dataset (To fasten training, I only used 10,000 images for training. Please see 'data' folder for more information)
+
 ### Supervised learning
 ```
 python3 supervised-train.py --gpu=0 --out='result/supervised' 

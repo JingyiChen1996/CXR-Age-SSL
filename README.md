@@ -26,5 +26,5 @@ python3 ssl-train.py --gpu=3 --workers=16 --out='reslut/mt' --model='mt' --n-lab
 
 ### Grad Cam
 ```
-python3 grad-cam.py
+python3 grad-cam.py --image-path='/home/jingyi/cxr-jingyi/data/nih/v1/images/images_003/patient04512/study007/00004512_007.jpg' --save-path='age1-2'
 ```

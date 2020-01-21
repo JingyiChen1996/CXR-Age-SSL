@@ -4,6 +4,7 @@ import numpy as np
 import copy
 import torch
 import imageio
+import random
 import pandas as pd
 from tqdm import tqdm
 from PIL import Image
@@ -48,20 +49,10 @@ class CamExtractor():
         """
         # Forward pass on the convolutions
         conv_output, x = self.forward_pass_on_convolutions(x)
-        x = x.view(x.size(0), -1)  # Flatten
+        x = x.view(-1, 1024)  # Flatten
         # Forward pass on the classifier
         x = self.model.fc(x)
-        return conv_output, x
-
-
-def show_cam_on_image(img, mask):
-    resized_mask = cv2.resize(np.uint8(255 * mask),(img.shape[0],img.shape[1]))
-    heatmap = cv2.applyColorMap(resized_mask, cv2.COLORMAP_JET)
-    heatmap = np.float32(heatmap) / 255
-    cam = heatmap + np.float32(img)
-    cam = cam / np.max(cam)
-    cv2.imwrite('heatmap.jpg', heatmap)
-    cv2.imwrite("cam.jpg", np.uint8(255 * cam))
+        return conv_output, x 
 
 
 class GradCam:
@@ -75,6 +66,7 @@ class GradCam:
         
         conv_output, model_output = self.extractor.forward_pass(input)
         print('conv output:', conv_output.shape)
+        print('model output:', model_output)
         if target_class == None:
             target_class = np.argmax(model_output.data.numpy())
         print('--------target-class:', target_class)
@@ -117,7 +109,7 @@ def save_class_activation_images(org_img, activation_map, file_name):
     if not os.path.exists('cam_results'):
         os.makedirs('cam_results')
     # Grayscale activation map
-    heatmap, heatmap_on_image = apply_colormap_on_image(org_img, activation_map, 'hsv')
+    heatmap, heatmap_on_image = apply_colormap_on_image(org_img, activation_map, 'jet')
     # Save colored heatmap
     path_to_file = os.path.join('cam_results', file_name+'_Cam_Heatmap.png')
     save_image(heatmap, path_to_file)
@@ -196,6 +188,8 @@ def get_args():
                         help='Input image path')
     parser.add_argument('--save-path', type=str, default='00011178_003',
                         help='Image save parent path')
+    parser.add_argument('--target-layer', type=int, default=13,
+                        help='Target layer')                   
 
     args = parser.parse_args()
 
@@ -206,11 +200,13 @@ def get_args():
 if __name__ == '__main__':
    
     args = get_args()
-
+    random.seed(1) 
+    torch.manual_seed(1) 
+    torch.backends.cudnn.deterministic = True
     model = MobileNet(16)
     checkpoint = torch.load('/home/jingyi/cxr-jingyi/Age/result/supervised/model_best.pth.tar')
-    model.load_state_dict(checkpoint['state_dict'], strict=False)
-    grad_cam = GradCam(model=model, target_layer=12)
+    model.load_state_dict(checkpoint['state_dict'])
+    grad_cam = GradCam(model=model, target_layer=args.target_layer)
 
     img = imageio.imread(args.image_path)
     cxr_test_transforms = tfms.Compose([
@@ -233,7 +229,6 @@ if __name__ == '__main__':
     target_index = None
     mask = grad_cam.generate_cam(input, target_index)
 
-    #show_cam_on_image(img_3d, mask)
     img_3d = cv2.cvtColor(cv2.resize(cropped_img,(256,256)), cv2.COLOR_BGR2RGB)
     img_pil = Image.fromarray(img_3d)
     save_class_activation_images(img_pil, mask, args.save_path)
